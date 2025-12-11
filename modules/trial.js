@@ -103,9 +103,6 @@ Upgrade: websocket
 📥 *Download All Config UNLOCK SSH*:
 🔗 https://rajaserverpremium.web.id/config-Indonesia.zip
 
-📥 *GRUP TESTIMOINI & BERBAGI BUG*:
-🔗 http://t.me/RAJA\\_VPN\\_STORE
-
 *© Telegram Bots - 2025*
 ✨ Terima kasih telah menggunakan layanan kami!
 `;
@@ -200,9 +197,6 @@ if (!/^[a-z0-9-]+$/.test(username)) {
 - AlterId     : \`0\`
 - Security    : \`auto\`
 - Network     : \`ws, grpc, upgrade\`
-
-📥 *GRUP TESTIMOINI & BERBAGI BUG*:
-🔗 http://t.me/RAJA\\_VPN\\_STORE
 
 *© Telegram Bots - 2025*
 ✨ Terima kasih telah menggunakan layanan kami!
@@ -300,9 +294,6 @@ if (!/^[a-z0-9-]+$/.test(username)) {
 - Security    : \`auto\`
 - Network     : \`ws, grpc, upgrade\`
 
-📥 *GRUP TESTIMOINI & BERBAGI BUG*:
-🔗 http://t.me/RAJA\\_VPN\\_STORE
-
 *© Telegram Bots - 2025*
 ✨ Terima kasih telah menggunakan layanan kami!
 `;
@@ -393,9 +384,6 @@ if (!/^[a-z0-9-]+$/.test(username)) {
 ⚙️ *Settings*:
 - Security    : \`auto\`
 - Network     : \`ws, grpc, upgrade\`
-
-📥 *GRUP TESTIMOINI & BERBAGI BUG*:
-🔗 http://t.me/RAJA\\_VPN\\_STORE
 
 *© Telegram Bots - 2025*
 ✨ Terima kasih telah menggunakan layanan kami!
