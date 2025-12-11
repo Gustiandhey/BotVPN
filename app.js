@@ -402,7 +402,7 @@ const statusReseller = isReseller ? 'Reseller' : 'Bukan Reseller';
 ├ Pembelian layanan VPN berkualitas tinggi
 └ Akses internet cepat & aman dengan server terpercaya! 
 
-<b>👋 Hai, Member <code>${userName}</code>!</b>
+<b>👋 Hallo, <code>${userName}</code>!</b>
 ID: <code>${userId}</code>
 Saldo: <code>Rp ${saldo}</code>
 Status: <code>${statusReseller}</code>
@@ -417,12 +417,6 @@ Status: <code>${statusReseller}</code>
 • Minggu Ini  : ${globalWeek} akun
 • Bulan Ini   : ${globalMonth} akun
 </blockquote>
-
-⚙️ <b>COMMAND</b>
-• 🏠 Menu Utama   : /start
-• 🔑 Menu Admin   : /admin
-• 🛡️ Admin Panel  : /helpadmin
-
 👨‍💻 <b>Admin:</b> @tiandhystore
 👥 <b>Pengguna BOT:</b> ${jumlahPengguna}
 ⏱️ <b>Latency:</b> ${latency} ms
@@ -528,6 +522,7 @@ bot.command('helpadmin', async (ctx) => {
 const helpMessage = `
 *📋 Daftar Perintah Admin:*
 
+0. /kurangisaldo - Mengurangi saldo ke akun pengguna.
 1. /addsaldo - Menambahkan saldo ke akun pengguna.
 2. /addserver - Menambahkan server baru.
 3. /addressel - Menambahkan reseller baru.
@@ -551,151 +546,131 @@ Gunakan perintah ini dengan format yang benar untuk menghindari kesalahan.
   ctx.reply(helpMessage, { parse_mode: 'Markdown' });
 });
 
-bot.command('broadcast', async (ctx) => {
+bot.command("broadcast", async (ctx) => {
   const userId = ctx.message.from.id;
   if (!adminIds.includes(userId)) {
-      return ctx.reply('⛔ Anda tidak punya izin.');
+    return ctx.reply("⛔ Anda tidak punya izin.");
   }
 
-  const msg = ctx.message.reply_to_message 
-      ? ctx.message.reply_to_message.text 
-      : ctx.message.text.split(' ').slice(1).join(' ');
+  const replyMsg = ctx.message.reply_to_message;
 
-  if (!msg) {
-      return ctx.reply('⚠️ Harap isi pesan broadcast.');
+  if (!replyMsg) {
+    return ctx.reply(
+      "⚠️ Untuk broadcast multimedia, *reply* pesan foto/sticker/teks lalu ketik:\n/broadcast",
+      { parse_mode: "Markdown" }
+    );
   }
 
-  ctx.reply('📢 Broadcast dimulai...');
+  ctx.reply("📢 Broadcast dimulai...");
 
+  // Ambil daftar user
   db.all("SELECT user_id FROM users", [], async (err, rows) => {
-      if (err) return ctx.reply('⚠️ Error ambil data user.');
+    if (err) return ctx.reply("⚠️ Error ambil data user.");
 
-      let sukses = 0;
-      let gagal = 0;
-      let dihapus = 0;
+    let sukses = 0, gagal = 0, dihapus = 0;
 
-      const delay = 30; // aman biar ga kena limit (30 ms)
+    for (const row of rows) {
+      const target = row.user_id;
 
-      for (const row of rows) {
-          try {
-              await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                  chat_id: row.user_id,
-                  text: msg
-              });
+      try {
+        // === CEK JENIS PESAN ===
+        if (replyMsg.photo) {
+          const fileId = replyMsg.photo[replyMsg.photo.length - 1].file_id;
+          await ctx.telegram.sendPhoto(target, fileId, {
+            caption: replyMsg.caption || null
+          });
 
-              sukses++;
+        } else if (replyMsg.sticker) {
+          await ctx.telegram.sendSticker(target, replyMsg.sticker.file_id);
 
-          } catch (error) {
-              const code = error.response?.status;
+        } else if (replyMsg.text) {
+          await ctx.telegram.sendMessage(target, replyMsg.text);
 
-              gagal++;
+        } else {
+          console.log("Unsupported message type");
+        }
 
-              // AUTO DELETE USER MATI
-              if (code === 400 || code === 403) {
-                  db.run("DELETE FROM users WHERE user_id = ?", [row.user_id]);
-                  dihapus++;
-                  console.log(`🗑️ User invalid dihapus: ${row.user_id}`);
-              }
+        sukses++;
 
-              console.log(`❌ Gagal kirim ke ${row.user_id}: ${code}`);
-          }
+      } catch (error) {
+        gagal++;
 
-          // Anti limit Telegram
-          await new Promise(r => setTimeout(r, delay));
+        // Hapus user invalid
+        if (error.response?.error_code === 400 || error.response?.error_code === 403) {
+          db.run("DELETE FROM users WHERE user_id = ?", [target]);
+          dihapus++;
+        }
       }
 
-      ctx.reply(
-          `📣 *Broadcast selesai!*\n\n` +
-          `✔️ Berhasil: *${sukses}*\n` +
-          `❌ Gagal: *${gagal}*\n` +
-          `🗑️ User dihapus: *${dihapus}*`,
-          { parse_mode: 'Markdown' }
-      );
+      await new Promise(r => setTimeout(r, 40)); // Anti-limit
+    }
+
+    ctx.reply(
+      `📣 *Broadcast selesai!*\n\n` +
+      `✔️ Berhasil: *${sukses}*\n` +
+      `❌ Gagal: *${gagal}*\n` +
+      `🗑️ User dihapus: *${dihapus}*`,
+      { parse_mode: "Markdown" }
+    );
   });
 });
 
-bot.command('broadcastfoto', async (ctx) => {
-    const userId = ctx.message.from.id;
-    if (!adminIds.includes(userId)) {
-        return ctx.reply('⛔ Anda tidak punya izin.');
-    }
+bot.command('kurangisaldo', async (ctx) => {
+  const userId = ctx.message.from.id;
+  if (!adminIds.includes(userId)) {
+      return ctx.reply('⚠️ Anda tidak memiliki izin untuk menggunakan perintah ini.', { parse_mode: 'Markdown' });
+  }
 
-    const replyMsg = ctx.message.reply_to_message;
+  const args = ctx.message.text.split(' ');
+  if (args.length !== 3) {
+      return ctx.reply('⚠️ Format salah. Gunakan: `/kurangisaldo <user_id> <jumlah>`', { parse_mode: 'Markdown' });
+  }
 
-    // Cek apakah broadcast foto atau teks
-    let isPhoto = false;
-    let msgText = '';
-    let photoFileId = '';
+  const targetUserId = parseInt(args[1]);
+  const amount = parseInt(args[2]);
 
-    if (replyMsg) {
-        if (replyMsg.photo) {
-            isPhoto = true;
-            // Ambil versi terbesar foto
-            photoFileId = replyMsg.photo[replyMsg.photo.length - 1].file_id;
-            msgText = replyMsg.caption || '';
-        } else if (replyMsg.text) {
-            msgText = replyMsg.text;
-        }
-    } else {
-        msgText = ctx.message.text.split(' ').slice(1).join(' ');
-    }
+  if (isNaN(targetUserId) || isNaN(amount)) {
+      return ctx.reply('⚠️ `user_id` dan `jumlah` harus berupa angka.', { parse_mode: 'Markdown' });
+  }
 
-    if (!msgText && !photoFileId) {
-        return ctx.reply('⚠️ Harap isi pesan broadcast atau reply foto.');
-    }
+  if (/\s/.test(args[1]) || /\./.test(args[1]) || /\s/.test(args[2]) || /\./.test(args[2])) {
+      return ctx.reply('⚠️ `user_id` dan `jumlah` tidak boleh mengandung spasi atau titik.', { parse_mode: 'Markdown' });
+  }
 
-    ctx.reply('📢 Broadcast dimulai...');
+  db.get("SELECT * FROM users WHERE user_id = ?", [targetUserId], (err, row) => {
+      if (err) {
+          logger.error('⚠️ Kesalahan saat memeriksa `user_id`:', err.message);
+          return ctx.reply('⚠️ Kesalahan saat memeriksa `user_id`.', { parse_mode: 'Markdown' });
+      }
 
-    db.all("SELECT user_id FROM users", [], async (err, rows) => {
-        if (err) return ctx.reply('⚠️ Error ambil data user.');
+      if (!row) {
+          return ctx.reply('⚠️ `user_id` tidak terdaftar.', { parse_mode: 'Markdown' });
+      }
 
-        let sukses = 0;
-        let gagal = 0;
-        let dihapus = 0;
+      // CEK SALDO CUKUP
+      if (row.saldo < amount) {
+          return ctx.reply(
+              `⚠️ Saldo tidak cukup!\nSaldo saat ini: \`${row.saldo}\``,
+              { parse_mode: 'Markdown' }
+          );
+      }
 
-        const delay = 30; // ms
+      db.run("UPDATE users SET saldo = saldo - ? WHERE user_id = ?", [amount, targetUserId], function(err) {
+          if (err) {
+              logger.error('⚠️ Kesalahan saat mengurangi saldo:', err.message);
+              return ctx.reply('⚠️ Kesalahan saat mengurangi saldo.', { parse_mode: 'Markdown' });
+          }
 
-        for (const row of rows) {
-            try {
-                if (isPhoto) {
-                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-                        chat_id: row.user_id,
-                        photo: photoFileId,
-                        caption: msgText
-                    });
-                } else {
-                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                        chat_id: row.user_id,
-                        text: msgText
-                    });
-                }
+          if (this.changes === 0) {
+              return ctx.reply('⚠️ Pengguna tidak ditemukan.', { parse_mode: 'Markdown' });
+          }
 
-                sukses++;
-
-            } catch (error) {
-                const code = error.response?.status;
-                gagal++;
-
-                if (code === 400 || code === 403) {
-                    db.run("DELETE FROM users WHERE user_id = ?", [row.user_id]);
-                    dihapus++;
-                    console.log(`🗑️ User invalid dihapus: ${row.user_id}`);
-                }
-
-                console.log(`❌ Gagal kirim ke ${row.user_id}: ${code}`);
-            }
-
-            await new Promise(r => setTimeout(r, delay));
-        }
-
-        ctx.reply(
-            `📣 *Broadcast selesai!*\n\n` +
-            `✔️ Berhasil: *${sukses}*\n` +
-            `❌ Gagal: *${gagal}*\n` +
-            `🗑️ User dihapus: *${dihapus}*`,
-            { parse_mode: 'Markdown' }
-        );
-    });
+          ctx.reply(
+              `✅ Saldo sebesar \`${amount}\` berhasil dikurangi dari \`user_id\` \`${targetUserId}\`.`,
+              { parse_mode: 'Markdown' }
+          );
+      });
+  });
 });
 
 bot.command('addsaldo', async (ctx) => {
